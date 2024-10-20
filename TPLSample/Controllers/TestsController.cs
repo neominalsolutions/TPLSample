@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading.Tasks;
 using TPLSample.Services;
 
 namespace TPLSample.Controllers
@@ -28,8 +29,8 @@ namespace TPLSample.Controllers
     // 576
     // 585
 
-    [HttpPost]
-    public async Task<IActionResult> CreatePdfParalel()
+    [HttpPost("v1")]
+    public async Task<IActionResult> CreatePdfParalelForeach()
     {
 
       string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "Files");
@@ -111,6 +112,32 @@ namespace TPLSample.Controllers
     }
 
 
+
+
+    [HttpPost("paralelFor")]
+    public async Task<IActionResult> CreatePdfParalelFor()
+    {
+
+      List<string> names = ["Ali", "Can", "Ahmet","Mustafa","Hakan","Yunus","Emre"];
+
+      Parallel.For(3,names.Count,(index) =>
+      {
+        this.logger.LogInformation($" ThreadId : {Thread.CurrentThread.ManagedThreadId}");
+
+        this.logger.LogInformation($"{names[index]}");
+
+      });
+
+      return Ok();
+
+    }
+
+
+    
+
+
+
+
     // Race Condition Sample
     // MultiThread Paylaşımlı veri üzerinde çalışmak
     // 113.432
@@ -156,6 +183,105 @@ namespace TPLSample.Controllers
 
 
       return Ok(new { filesByte, filesCount, fileInfoSize = fileInfos.Select(x=> x.Name)});
+    }
+
+
+
+    // Multi-Thread çalıştığımız için Her Thread kendi içerisinde hesaplamasını Thread Safe bir şekilde tutsun istiyoruz.
+    // Buda ParalelFor veya ParalelForeach işlemlerinde, her bir işlem için bir kod bloğu çalıştırmak yerine, toplu olarak bir kod bloğu çalıştırdığımızdan dolayı Performans sağlayan bir yöntemdir..
+
+    [HttpGet("threadSafeLocalVariables")]
+    public async Task<IActionResult> ThreadSafeLocalVariables()
+    {
+      
+      var numbers = Enumerable.Range(0, 10).ToList();
+
+      // () => 0 LocalInit
+      // (value, loop, total)  value: currentValue, loop : loopState, total: subTotal
+      //  (total)  localFinal
+
+      long sum = 0;
+
+
+      Parallel.ForEach(numbers, () => 0, (value, loop, total) =>
+      {
+        // Burada Interlock ile her bir işlemde thread lock etmek yerine her bir thread result kendi içinde topladık.
+        this.logger.LogInformation($"loop Is Stoped: {loop.IsStopped}");
+        this.logger.LogInformation($"Thread Id {Thread.CurrentThread.ManagedThreadId}");
+        total += value;
+        return total;
+
+      }, (total) =>
+      {
+        // Thread Kendi içerisinde hesaplama yaptıktan sonra veritabanına kayıt atsın düşünülebilir.
+        // İlla shared Data ile çalışacak diye bir kaide yok.
+        Interlocked.Add(ref sum, total); // threadler arasında race condition oluşmasın diye
+      });
+
+
+      return Ok(sum);
+    }
+
+    // paralel olarak başlayan bir ifade de iptal işlemlerini nasıl yapacağız.
+    // Cancelation Token üzerinden iptal edebiliriz.
+
+    // Paralel.Foreach veya For kullanımında Main thread üzerinde işlemi başlatacak şekilde yazarsak, UI kitleyebiliriz.  Paralel.Foreach içerisindeki kodlar Multi-Thread çalışır fakat, kendi çağırısı kodu blocklamasın diye ya Async yada Task.Run içerisinde çalıştırılabilir.
+
+
+    [HttpGet("cancelationToken")]
+    public async Task<IActionResult> ParalelForCancelation(CancellationToken cancellationToken)
+    {
+      List<string> urls = ["https://www.google.com","https://neominal.com"];
+
+      var httpclient = new HttpClient();
+
+      string content = "";
+
+
+      var options = new ParallelOptions();
+      options.CancellationToken = cancellationToken;
+
+
+      try
+      {
+
+        // CPU-bound işler için uygundur ve senkron çalışır.
+        // Hesaplama gücüne dayanan işlemleri ifade eder.
+        // Bu tür işlemler, işlemcinin yoğun bir şekilde çalıştığı ve genellikle zaman alıcı matematiksel veya mantıksal işlemler içerir.
+        Parallel.ForEach<string>(urls, options, async (url) =>
+        {
+          // kodu bloklayacak şekilde yazdık. Aynı thread kullanılacak.
+          content =  httpclient.GetStringAsync(url,cancellationToken).Result;
+          cancellationToken.ThrowIfCancellationRequested();
+          // eğer işlem iptal edilirse hata fırlat
+          //this.logger.LogInformation(content);
+
+          this.logger.LogInformation($"Parallel ForEach Item Thread {Thread.CurrentThread.ManagedThreadId}");
+
+        });
+
+
+        // Asenkron işlemlerle daha verimli bir şekilde çalışarak IO-bound işler için tasarlanmıştır.
+        // veri okuma veya yazma işlemlerinin, işlem süresinin büyük bir kısmını oluşturduğu durumları ifade eder. Bu tür işlemler genellikle disk erişimi, ağ bağlantıları veya kullanıcı girişleri gibi yavaş kaynaklarla ilgilidir
+        await Parallel.ForEachAsync<string>(urls, options, async (url,CancellationToken) =>
+        {
+          content =   await httpclient.GetStringAsync(url, CancellationToken);
+          CancellationToken.ThrowIfCancellationRequested();
+          // eğer işlem iptal edilirse hata fırlat
+          //this.logger.LogInformation(content);
+
+          this.logger.LogInformation($"Parallel ForEachAsync Item Thread {Thread.CurrentThread.ManagedThreadId}");
+
+        });
+
+      }
+      catch (Exception ex)
+      {
+        logger.LogInformation(ex.Message);
+       
+      }
+
+      return Ok(content);
     }
 
 

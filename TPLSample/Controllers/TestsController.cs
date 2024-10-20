@@ -249,17 +249,17 @@ namespace TPLSample.Controllers
         // CPU-bound işler için uygundur ve senkron çalışır.
         // Hesaplama gücüne dayanan işlemleri ifade eder.
         // Bu tür işlemler, işlemcinin yoğun bir şekilde çalıştığı ve genellikle zaman alıcı matematiksel veya mantıksal işlemler içerir.
-        Parallel.ForEach<string>(urls, options, async (url) =>
-        {
-          // kodu bloklayacak şekilde yazdık. Aynı thread kullanılacak.
-          content =  httpclient.GetStringAsync(url,cancellationToken).Result;
-          cancellationToken.ThrowIfCancellationRequested();
-          // eğer işlem iptal edilirse hata fırlat
-          //this.logger.LogInformation(content);
+        //Parallel.ForEach<string>(urls, options, async (url) =>
+        //{
+        //  // kodu bloklayacak şekilde yazdık. Aynı thread kullanılacak.
+        //  content =  httpclient.GetStringAsync(url,cancellationToken).Result;
+        //  options.CancellationToken.ThrowIfCancellationRequested();
+        //  // eğer işlem iptal edilirse hata fırlat
+        //  //this.logger.LogInformation(content);
 
-          this.logger.LogInformation($"Parallel ForEach Item Thread {Thread.CurrentThread.ManagedThreadId}");
+        //  this.logger.LogInformation($"Parallel ForEach Item Thread {Thread.CurrentThread.ManagedThreadId}");
 
-        });
+        //});
 
 
         // Asenkron işlemlerle daha verimli bir şekilde çalışarak IO-bound işler için tasarlanmıştır.
@@ -267,7 +267,7 @@ namespace TPLSample.Controllers
         await Parallel.ForEachAsync<string>(urls, options, async (url,CancellationToken) =>
         {
           content =   await httpclient.GetStringAsync(url, CancellationToken);
-          CancellationToken.ThrowIfCancellationRequested();
+          options.CancellationToken.ThrowIfCancellationRequested();
           // eğer işlem iptal edilirse hata fırlat
           //this.logger.LogInformation(content);
 

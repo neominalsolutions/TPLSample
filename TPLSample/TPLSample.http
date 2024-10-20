@@ -1,0 +1,6 @@
+@TPLSample_HostAddress = http://localhost:5273
+
+GET {{TPLSample_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

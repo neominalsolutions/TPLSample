@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
@@ -275,7 +276,7 @@ namespace TPLSample.Controllers
         });
 
       }
-      catch (Exception ex)
+      catch (OperationCanceledException ex) // OperationCancelException
       {
         logger.LogInformation(ex.Message);
        

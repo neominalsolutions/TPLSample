@@ -34,7 +34,7 @@ namespace TPLSample.Controllers
 
       string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "Files");
 
-      var list = Enumerable.Range(1, 25).ToList();
+      var list = Enumerable.Range(1, 100).ToList();
 
       Stopwatch sw = new Stopwatch();
       sw.Start();
@@ -118,6 +118,9 @@ namespace TPLSample.Controllers
     public async Task<IActionResult> RaceCondition()
     {
       string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "Files");
+      object _lockObject = new object();
+
+      List<FileInfo> fileInfos = new List<FileInfo>();
 
       long filesByte = 0;
       int filesCount = 0;
@@ -134,8 +137,17 @@ namespace TPLSample.Controllers
         // Bunu kullanamazsak aynı anda farklı threadler filesByte değeri üzerinden güncelleme yapmaya çalışır.
         //filesByte += f.Length;
         //filesCount++;
-        Interlocked.Add(ref filesByte, f.Length); // değeri artırarak git
-        Interlocked.Increment(ref filesCount); // 1 er 1 er artır.
+        //fileInfos.Add(f);
+
+        lock (_lockObject)
+        {
+          filesByte += f.Length;
+          filesCount++;
+          fileInfos.Add(f);
+        }
+
+        // Interlocked.Add(ref filesByte, f.Length); // değeri artırarak git
+        // Interlocked.Increment(ref filesCount); // 1 er 1 er artır.
 
         // Interlocked.Exchange(ref filesByte, 300); // Thread Safe bir şekilde değeri güncelle
         // Interlocked.Decrement(ref filesByte); // değeri 1 azlat
@@ -143,7 +155,7 @@ namespace TPLSample.Controllers
       });
 
 
-      return Ok(new { filesByte, filesCount});
+      return Ok(new { filesByte, filesCount, fileInfoSize = fileInfos.Select(x=> x.Name)});
     }
 
 

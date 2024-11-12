@@ -1,10 +1,12 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using TPLSample.Services;
+using System.Collections.Generic;
 
 namespace TPLSample.Controllers
 {
@@ -148,7 +150,15 @@ namespace TPLSample.Controllers
       string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "Files");
       object _lockObject = new object();
 
-      List<FileInfo> fileInfos = new List<FileInfo>();
+      // Sırasız (unordered) ve çoklu iş parçacığından eşzamanlı erişime izin veren bir koleksiyondur. Ancak, bloklama ve senkronizasyon işlemleri yapmaz.
+      // Verilerin sırasız bir şekilde eklenip çıkarılması yeterliyse ve bloklama gereksizse, yani veri üretimi ve tüketimi arasında sıralama veya kontrol gerekli değilse, ConcurrentBag<T> daha uygun bir seçimdir.
+      // ConcurrentBag<T> bazı senaryolarda race condition yaratabilir, çünkü koleksiyonun içsel yönetimi sırasında sıra garantisi yoktur.
+      ConcurrentBag<FileInfo> fileInfos = new ConcurrentBag<FileInfo>();
+      
+      BlockingCollection<FileInfo> fileInfos2 = new BlockingCollection<FileInfo>();
+      // Bir iş parçacığı öğe eklerken (üretici), diğer iş parçacığı öğeleri çekerken (tüketici) bloklama mekanizmaları devreye girer.
+      // Bu özellik, veri üretimi ve tüketimi arasında kontrollü bir akış sağlar. BlockingCollection<T> kullanarak, bir iş parçacığının bir öğe eklemesini bekleyen başka bir iş parçacığının beklemek zorunda kalması sağlanabilir.
+      //  iş parçacıklarının sırasıyla ve uygun bir şekilde veri üretmesini sağlamak için idealdir. Kapasite sınırlamaları ve bloklama gereksinimleri olan durumlarda kullanılır.
 
       long filesByte = 0;
       int filesCount = 0;

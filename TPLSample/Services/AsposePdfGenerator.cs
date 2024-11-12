@@ -82,9 +82,8 @@ namespace TPLSample.Services
 
     public Task GenerateAsync(string fileName)
     {
-      Generate(fileName);
+      return Task.Run(() => Generate(fileName));
 
-      return Task.CompletedTask;
     }
   }
 }

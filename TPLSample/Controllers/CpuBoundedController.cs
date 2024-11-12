@@ -66,6 +66,7 @@ namespace TPLSample.Controllers
     {
       var items = Enumerable.Range(1, 10000000).ToList();
 
+      // List 10000000 kaydı işleyemedeğinden multi-thread olmasa dahi ConcurrentBag kullanıldı.
       ConcurrentBag<double> results = new();
 
       Stopwatch sw = new Stopwatch();

@@ -247,8 +247,11 @@ namespace TPLSample.Controllers
 
       var numbers = Enumerable.Range(0, 10).ToList();
 
-      long sum = 0;
+      long sum = 0; // Threadler arasında ortak kullanılan değişken
 
+      // 1000 Kayıt var
+      // 1000 Thread Var 
+      // Her bir Thread kendi içerisinde local olarak hesaplama yapabiliyor.
 
       Parallel.ForEach(numbers, () => 0, (value, loop, total) =>
       {
@@ -258,7 +261,7 @@ namespace TPLSample.Controllers
         total += value;
         return total;
 
-      }, (total) =>
+      }, (total) => // Her bir Thread ait toplamı ele alıyoruz.
       {
         // Thread Kendi içerisinde hesaplama yaptıktan sonra veritabanına kayıt atsın düşünülebilir.
         // İlla shared Data ile çalışacak diye bir kaide yok.
@@ -279,15 +282,17 @@ namespace TPLSample.Controllers
 
       string content = "";
 
+      // eğer paralel bir işlemi iptal etmek istersek paralel options olarak oluşturup, ilgili Paralel.Foreach içerisinde bu option değerini localine gönderiyoruz.
       var options = new ParallelOptions();
       options.CancellationToken = cancellationToken;
 
 
       try
       {
-        await Parallel.ForEachAsync<string>(urls, options, async (url, CancellationToken) =>
+
+        Parallel.ForEach<string>(urls, options,  (url) =>
         {
-          content = await httpclient.GetStringAsync(url, CancellationToken);
+          content = httpclient.GetStringAsync(url,options.CancellationToken).Result;
           options.CancellationToken.ThrowIfCancellationRequested();
           // eğer işlem iptal edilirse hata fırlat
           //this.logger.LogInformation(content);
@@ -296,10 +301,29 @@ namespace TPLSample.Controllers
 
         });
 
-      }
+        //await Parallel.ForEachAsync<string>(urls, options, async (url, CancellationToken) =>
+        //{
+        //  content = await httpclient.GetStringAsync(url, CancellationToken);
+        //  options.CancellationToken.ThrowIfCancellationRequested();
+        //  // eğer işlem iptal edilirse hata fırlat
+        //  //this.logger.LogInformation(content);
+
+        //  this.logger.LogInformation($"Parallel ForEachAsync Item Thread {Thread.CurrentThread.ManagedThreadId}");
+
+        //});
+
+      } 
       catch (OperationCanceledException ex) // OperationCancelException
       {
         logger.LogInformation(ex.Message);
+
+      }
+      catch (AggregateException ex) // Loop ile iterasyon işlemi yaptığımız için loop içerisinde farklı threadlerde anlık hatalar oluşabilir. Buda birden fazla hata döndürüldüğü anlımına gelir. Bu tarz durumlarda AggregateException denilen bir istisnai hata tipi olarak gönderilir. PLINQ da da aynı şekilde aggregate exception sınfıından birden fazla hatayı yakalıyoruz.
+      {
+        foreach (var item in ex.InnerExceptions)
+        {
+          logger.LogInformation(item.InnerException.Message);
+        }
 
       }
 

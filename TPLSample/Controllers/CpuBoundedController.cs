@@ -41,7 +41,7 @@ namespace TPLSample.Controllers
       var items = Enumerable.Range(1, 10000000).ToList();
 
       // bu arkadaş sıralaı bir şekilde kodu bloklayarak işlem yaptığından ConcurrentBag göre daha yavaş çalıştı.
-      BlockingCollection<double> results = new();
+      BlockingCollection<double> results = new(100);
 
       Stopwatch sw = new Stopwatch();
 
